@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Task, Designer, Analyst, TaskUrgency, ChecklistItem } from '../types';
 import TaskForm from './TaskForm';
 import AnalyticsView from './AnalyticsView';
@@ -20,6 +20,10 @@ interface ManagerDashboardProps {
   onDeleteTask: (id: string) => void;
   onUpdateDesigner: (id: string, updatedFields: Partial<Designer>) => void;
   onUpdateAnalyst: (id: string, updatedFields: Partial<Analyst>) => void;
+  onAddDesigner: (newDesigner: Omit<Designer, 'id'>) => void;
+  onDeleteDesigner: (id: string) => void;
+  onAddAnalyst: (newAnalyst: Omit<Analyst, 'id'>) => void;
+  onDeleteAnalyst: (id: string) => void;
 }
 
 export default function ManagerDashboard({ 
@@ -30,12 +34,56 @@ export default function ManagerDashboard({
   onEditTask, 
   onDeleteTask,
   onUpdateDesigner,
-  onUpdateAnalyst
+  onUpdateAnalyst,
+  onAddDesigner,
+  onDeleteDesigner,
+  onAddAnalyst,
+  onDeleteAnalyst
 }: ManagerDashboardProps) {
   const [activeTab, setActiveTab] = useState<'board' | 'analytics' | 'team'>('board');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  
+  // User Management State
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [newType, setNewType] = useState<'designer' | 'analyst'>('designer');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newDesignerRole, setNewDesignerRole] = useState<'Inhouse' | 'Freelance'>('Inhouse');
+  const [newAnalystRoleText, setNewAnalystRoleText] = useState('Analista de Marketing');
+  const [newUserColor, setNewUserColor] = useState('bg-indigo-500 text-white');
+
+  const handleCreateUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim() || !newUserEmail.trim()) {
+      alert('Por favor, completa el nombre y el correo.');
+      return;
+    }
+
+    if (newType === 'designer') {
+      onAddDesigner({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        role: newDesignerRole,
+        avatarColor: newUserColor
+      });
+    } else {
+      onAddAnalyst({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        role: newAnalystRoleText.trim(),
+        avatarColor: newUserColor
+      });
+    }
+
+    // Reset fields
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewDesignerRole('Inhouse');
+    setNewAnalystRoleText('Analista de Marketing');
+    setIsAddingUser(false);
+  };
   
   // Quick status counters
   const pending = tasks.filter(t => t.status === 'Pendiente');
@@ -457,6 +505,172 @@ export default function ManagerDashboard({
       ) : (
         <div className="animate-in fade-in duration-300 space-y-8 max-w-4xl mx-auto pb-10">
           
+          {/* BLOQUE DE GESTIÓN Y CREACIÓN DE USUARIOS */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sidebar-border pb-4 mb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                  <UserCog className="w-5 h-5 text-indigo-600" />
+                  <span>Panel de Control: Gestión de Usuarios</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-light mt-0.5">
+                  Registra nuevas personas en el simulador u organiza el equipo de analistas y creadores.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddingUser(!isAddingUser)}
+                className={`text-xs px-4 py-2 rounded-xl font-bold cursor-pointer transition ${
+                  isAddingUser 
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                }`}
+              >
+                {isAddingUser ? 'Cerrar Formulario' : '➕ Agregar Nuevo Usuario'}
+              </button>
+            </div>
+
+            {/* Create user form */}
+            {isAddingUser && (
+              <form onSubmit={handleCreateUserSubmit} className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4 animate-in slide-in-from-top-3 duration-255">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Registrar Nuevo Perfil en el Simulador</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Tipo de Usuario */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1">Tipo de Usuario / Rol</label>
+                    <select
+                      value={newType}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        setNewType(val);
+                        if (val === 'analyst') {
+                          setNewUserColor('bg-violet-500 text-white');
+                        } else {
+                          setNewUserColor('bg-indigo-500 text-white');
+                        }
+                      }}
+                      className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-hidden"
+                    >
+                      <option value="designer">Diseñador (Ejecutor de piezas)</option>
+                      <option value="analyst">Analista de Marketing (Solicitante)</option>
+                    </select>
+                  </div>
+
+                  {/* Nombre */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1">Nombre Completo</label>
+                    <input
+                      type="text"
+                      required
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      placeholder="Ej: Carolina Domínguez"
+                      className="w-full text-xs font-semibold text-slate-850 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-hidden"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1">Correo Electrónico</label>
+                    <input
+                      type="email"
+                      required
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      placeholder="Ej: carolina.d@empresa.com"
+                      className="w-full text-xs font-semibold text-slate-850 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-hidden"
+                    />
+                  </div>
+
+                  {/* Dynamic position specification depending on type */}
+                  {newType === 'designer' ? (
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1">Modalidad de Contratación</label>
+                      <select
+                        value={newDesignerRole}
+                        onChange={(e) => setNewDesignerRole(e.target.value as any)}
+                        className="w-full text-xs font-semibold text-slate-850 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-hidden"
+                      >
+                        <option value="Inhouse">In-house (Personal de planta)</option>
+                        <option value="Freelance">Freelance (Externo por proyectos)</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1">Cargo / Puesto de Trabajo</label>
+                      <input
+                        type="text"
+                        required
+                        value={newAnalystRoleText}
+                        onChange={(e) => setNewAnalystRoleText(e.target.value)}
+                        placeholder="Ej: Analista de Growth o Contenido"
+                        className="w-full text-xs font-semibold text-slate-850 bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-hidden"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Avatar Color Picker */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 block uppercase mb-1.5">Color del Perfil / Avatar</label>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {[
+                      { bg: 'bg-rose-500 text-white', label: 'Coral' },
+                      { bg: 'bg-violet-500 text-white', label: 'Violeta' },
+                      { bg: 'bg-teal-500 text-white', label: 'Menta' },
+                      { bg: 'bg-indigo-500 text-white', label: 'Indigo' },
+                      { bg: 'bg-fuchsia-500 text-white', label: 'Fucsia' },
+                      { bg: 'bg-cyan-500 text-white', label: 'Cian' },
+                      { bg: 'bg-emerald-500 text-white', label: 'Esmeralda' },
+                      { bg: 'bg-amber-500 text-black', label: 'Ambar' },
+                      { bg: 'bg-pink-500 text-white', label: 'Rosa' },
+                      { bg: 'bg-slate-700 text-white', label: 'Plomo' }
+                    ].map((item) => {
+                      const isSelected = newUserColor === item.bg;
+                      return (
+                        <button
+                          key={item.bg}
+                          type="button"
+                          onClick={() => setNewUserColor(item.bg)}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center transition border-2 ${
+                            isSelected ? 'border-slate-900 scale-110 shadow-xs' : 'border-transparent hover:scale-105'
+                          } ${item.bg}`}
+                          title={item.label}
+                        >
+                          {isSelected && <span className="text-[10px]">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingUser(false)}
+                    className="text-xs bg-white hover:bg-slate-100 border border-slate-300 text-slate-600 px-4 py-2 rounded-xl transition cursor-pointer font-semibold"
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    type="submit"
+                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition cursor-pointer font-bold shadow-xs"
+                  >
+                    Confirmar Guardado
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="border-t border-slate-100 my-4"></div>
+            <p className="text-[11px] text-slate-400 font-light flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              Sugerencia: Una vez creado, el usuario aparecerá en el listado respectivo y servirá para simular sus dashboards usando la barra de navegación lateral.
+            </p>
+          </div>
+          
           {/* Section 1: Marketing Analysts (Solicitantes de tareas) */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-1">
@@ -464,7 +678,7 @@ export default function ManagerDashboard({
               <span>Analistas de Marketing (Solicitantes)</span>
             </h3>
             <p className="text-xs text-slate-500 font-light mb-6">
-              Colaboradores y analistas con permiso directo para cargar y asignar tareas de diseño de marketing. Edita sus perfiles en tiempo real.
+              Colaboradores y analistas con permiso directo para cargar y asignar tareas de diseño de marketing. Edita sus perfiles en tiempo real o elimínalos.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -473,6 +687,7 @@ export default function ManagerDashboard({
                   key={analyst.id}
                   analyst={analyst}
                   onUpdate={onUpdateAnalyst}
+                  onDelete={onDeleteAnalyst}
                 />
               ))}
             </div>
@@ -485,7 +700,7 @@ export default function ManagerDashboard({
               <span>Equipo de Diseño</span>
             </h3>
             <p className="text-xs text-slate-500 font-light mb-6">
-              Edita el nombre y datos de los integrantes del equipo creativo. Los cambios se actualizarán automáticamente en todo el sistema.
+              Edita el nombre, modalidad de contrato y datos de los integrantes del equipo creativo, o quítalos de la nómina.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -502,6 +717,7 @@ export default function ManagerDashboard({
                     pendingCount={pendingTasksCount}
                     completedCount={completedTasksCount}
                     onUpdate={onUpdateDesigner}
+                    onDelete={onDeleteDesigner}
                   />
                 );
               })}
@@ -522,13 +738,21 @@ interface DesignerEditCardProps {
   pendingCount: number;
   completedCount: number;
   onUpdate: (id: string, updated: Partial<Designer>) => void;
+  onDelete?: (id: string) => void;
 }
 
-function DesignerEditCard({ designer, activeTaskTitle, pendingCount, completedCount, onUpdate }: DesignerEditCardProps) {
+function DesignerEditCard({ designer, activeTaskTitle, pendingCount, completedCount, onUpdate, onDelete }: DesignerEditCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(designer.name);
   const [editedEmail, setEditedEmail] = useState(designer.email);
   const [editedRole, setEditedRole] = useState(designer.role);
+
+  // Sync inputs with designer is updated/prop is modified (fixes "no me toma el cambio")
+  useEffect(() => {
+    setEditedName(designer.name);
+    setEditedEmail(designer.email);
+    setEditedRole(designer.role);
+  }, [designer]);
 
   const handleSave = () => {
     if (!editedName.trim()) {
@@ -625,21 +849,36 @@ function DesignerEditCard({ designer, activeTaskTitle, pendingCount, completedCo
       </div>
 
       {isEditing ? (
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="text-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-xs"
-          >
-            Guardar
-          </button>
+        <div className="flex justify-between items-center gap-2 pt-2 border-t border-slate-200/50">
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(designer.id);
+                setIsEditing(false);
+              }}
+              className="text-[10px] bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3 text-rose-600" />
+              <span>Eliminar</span>
+            </button>
+          ) : <div />}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="text-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-xs"
+            >
+              Guardar
+            </button>
+          </div>
         </div>
       ) : (
         <div className="border-t border-slate-200/60 pt-3 flex flex-col gap-2">
@@ -687,13 +926,21 @@ interface AnalystEditCardProps {
   key?: string;
   analyst: Analyst;
   onUpdate: (id: string, updated: Partial<Analyst>) => void;
+  onDelete?: (id: string) => void;
 }
 
-function AnalystEditCard({ analyst, onUpdate }: AnalystEditCardProps) {
+function AnalystEditCard({ analyst, onUpdate, onDelete }: AnalystEditCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(analyst.name);
   const [editedEmail, setEditedEmail] = useState(analyst.email);
   const [editedRole, setEditedRole] = useState(analyst.role);
+
+  // Sync inputs with analyst is updated/prop is modified (fixes "no me toma el cambio")
+  useEffect(() => {
+    setEditedName(analyst.name);
+    setEditedEmail(analyst.email);
+    setEditedRole(analyst.role);
+  }, [analyst]);
 
   const handleSave = () => {
     if (!editedName.trim()) {
@@ -778,21 +1025,36 @@ function AnalystEditCard({ analyst, onUpdate }: AnalystEditCardProps) {
       </div>
 
       {isEditing && (
-        <div className="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="text-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-xs"
-          >
-            Guardar
-          </button>
+        <div className="flex justify-between items-center gap-2 pt-2 border-t border-slate-200/50">
+          {onDelete && analyst.id !== 'ana_meli' ? (
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(analyst.id);
+                setIsEditing(false);
+              }}
+              className="text-[10px] bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3 text-rose-600" />
+              <span>Eliminar</span>
+            </button>
+          ) : <div />}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="text-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold transition cursor-pointer shadow-xs"
+            >
+              Guardar
+            </button>
+          </div>
         </div>
       )}
     </div>

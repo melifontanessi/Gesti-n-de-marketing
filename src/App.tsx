@@ -62,11 +62,54 @@ export default function App() {
     ));
   };
 
+  // Action: Add new designer
+  const handleAddDesigner = (newDesigner: Omit<Designer, 'id'>) => {
+    const designer: Designer = {
+      ...newDesigner,
+      id: `des_${Date.now()}`
+    };
+    setDesigners(prev => [...prev, designer]);
+  };
+
+  // Action: Delete designer
+  const handleDeleteDesigner = (id: string) => {
+    if (confirm('¿Estás seguro de que deseas eliminar este diseñador del equipo? Las tareas activas de este diseñador quedarán sin asignar.')) {
+      setDesigners(prev => prev.filter(d => d.id !== id));
+      setTasks(prev => prev.map(t => t.assigneeId === id ? { ...t, assigneeId: '' } : t));
+      if (currentUser === id) {
+        setCurrentUser('manager');
+      }
+    }
+  };
+
   // Action: Update analyst details
   const handleUpdateAnalyst = (id: string, updatedFields: Partial<Analyst>) => {
     setAnalysts(prev => prev.map(a => 
       a.id === id ? { ...a, ...updatedFields } : a
     ));
+  };
+
+  // Action: Add new analyst
+  const handleAddAnalyst = (newAnalyst: Omit<Analyst, 'id'>) => {
+    const analyst: Analyst = {
+      ...newAnalyst,
+      id: `ana_${Date.now()}`
+    };
+    setAnalysts(prev => [...prev, analyst]);
+  };
+
+  // Action: Delete analyst
+  const handleDeleteAnalyst = (id: string) => {
+    if (id === 'ana_meli') {
+      alert('No es posible eliminar al usuario Meli Fontanessi (Responsable de Área).');
+      return;
+    }
+    if (confirm('¿Estás seguro de que deseas eliminar este analista del equipo?')) {
+      setAnalysts(prev => prev.filter(a => a.id !== id));
+      if (currentUser === id) {
+        setCurrentUser('manager');
+      }
+    }
   };
 
   // Action: Add new task (Analyst/Manager flow)
@@ -423,6 +466,10 @@ export default function App() {
                 onDeleteTask={handleDeleteTask}
                 onUpdateDesigner={handleUpdateDesigner}
                 onUpdateAnalyst={handleUpdateAnalyst}
+                onAddDesigner={handleAddDesigner}
+                onDeleteDesigner={handleDeleteDesigner}
+                onAddAnalyst={handleAddAnalyst}
+                onDeleteAnalyst={handleDeleteAnalyst}
               />
             </div>
           ) : (
