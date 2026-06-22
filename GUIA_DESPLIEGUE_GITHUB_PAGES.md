@@ -73,4 +73,4 @@ Gracias al archivo de integración que te acabo de configurar, GitHub Pages lo d
 ---
 
 ## 💡 Consejos para el uso con el equipo
-A disfrutar de tu nueva herramienta independiente y administrada por ti para siempre. 🚀
+A disfrutar de tu nueva herramienta independiente y administrada por ti para siempre. ¡Mucho éxito en la gestión de marketing! 🚀

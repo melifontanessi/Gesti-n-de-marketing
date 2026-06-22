@@ -31,6 +31,20 @@ export const ANALYSTS: Analyst[] = [
 
 export const DESIGNERS: Designer[] = [
   {
+    id: 'des_victoria',
+    name: 'Victoria Rossi',
+    role: 'Inhouse',
+    avatarColor: 'bg-fuchsia-500 text-white',
+    email: 'victoria.r@empresa.com'
+  },
+  {
+    id: 'des_giuliana',
+    name: 'Giuliana Marín',
+    role: 'Inhouse',
+    avatarColor: 'bg-cyan-500 text-white',
+    email: 'giuliana.m@empresa.com'
+  },
+  {
     id: 'des_martin',
     name: 'Martín Cabrera',
     role: 'Inhouse',

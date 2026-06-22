@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Designer, ChecklistItem } from '../types';
 import { formatDuration, formatDate } from '../utils';
-import { Clock, CheckSquare, Play, AlertTriangle, Send, RefreshCw, Star, Ban, ExternalLink, HelpCircle } from 'lucide-react';
+import { Clock, CheckSquare, Play, AlertTriangle, Send, RefreshCw, Star, Ban, ExternalLink, HelpCircle, Bell, X, Check } from 'lucide-react';
 
 interface DesignerDashboardProps {
   designerId: string;
@@ -47,6 +47,41 @@ export default function DesignerDashboard({
   // Local state for active note taking and checklist completion
   const [activeNotes, setActiveNotes] = useState<{ [taskId: string]: string }>({});
   const [activeChecklists, setActiveChecklists] = useState<{ [taskId: string]: ChecklistItem[] }>({});
+
+  // Notifications personal dismissed log
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`read_notif_${designerId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Keep in sync when designer switch occurs
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`read_notif_${designerId}`);
+      setReadNotificationIds(saved ? JSON.parse(saved) : []);
+    } catch {
+      setReadNotificationIds([]);
+    }
+  }, [designerId]);
+
+  // Notifications criteria: tasks assigned to me that are pending and not dismissed
+  const notifications = pending.filter(task => !readNotificationIds.includes(task.id));
+
+  const handleDismissNotification = (taskId: string) => {
+    const nextRead = [...readNotificationIds, taskId];
+    setReadNotificationIds(nextRead);
+    localStorage.setItem(`read_notif_${designerId}`, JSON.stringify(nextRead));
+  };
+
+  const handleClearAllNotifications = () => {
+    const nextRead = [...readNotificationIds, ...pending.map(p => p.id)];
+    setReadNotificationIds(nextRead);
+    localStorage.setItem(`read_notif_${designerId}`, JSON.stringify(nextRead));
+  };
 
   // Core ticker loop
   useEffect(() => {
@@ -148,6 +183,69 @@ export default function DesignerDashboard({
         </div>
       </div>
 
+      {/* Designer Notification Panel (Requirement 4) */}
+      {notifications.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-500/10 via-indigo-600/5 to-transparent border border-indigo-200 p-5 rounded-2xl shadow-3xs space-y-3.5 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-405 opacity-75 animate-sine"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
+              </span>
+              <Bell className="w-4 h-4 text-indigo-600 animate-bounce" />
+              <span>Buzón de Notificaciones: Nuevas Tareas Asignadas ({notifications.length})</span>
+            </h3>
+            <button
+              onClick={handleClearAllNotifications}
+              className="text-[10px] bg-indigo-600 text-white font-semibold px-2.5 py-1 rounded-md hover:bg-indigo-700 hover:shadow-xs transition cursor-pointer"
+            >
+              Marcar todas como leídas
+            </button>
+          </div>
+          
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {notifications.map(task => (
+              <div 
+                key={task.id} 
+                className="bg-white border border-indigo-100 p-2.5 rounded-xl flex items-center justify-between gap-4 shadow-3xs hover:bg-slate-50/55 transition"
+              >
+                <div className="flex items-start gap-2 max-w-[70%]">
+                  <span className={`text-[9px] font-bold uppercase rounded-md px-1.5 py-0.5 border shrink-0 mt-0.5 ${getUrgencyBadgeColor(task.urgency)}`}>
+                    {task.urgency}
+                  </span>
+                  <div className="truncate">
+                    <span className="text-[11px] text-slate-500 block">Nueva asignación cargada en tu listado:</span>
+                    <span className="text-xs text-indigo-950 font-bold block truncate font-sans">
+                      "{task.title}"
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      onStartTask(task.id);
+                      handleDismissNotification(task.id);
+                    }}
+                    className="bg-indigo-600/10 hover:bg-indigo-600 text-indigo-700 hover:text-white font-extrabold text-[10px] px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Play className="w-2.5 h-2.5 fill-current" />
+                    <span>Iniciar ya</span>
+                  </button>
+                  <button
+                    onClick={() => handleDismissNotification(task.id)}
+                    className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                    title="Descartar"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Grid: Columns of work */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -239,26 +337,33 @@ export default function DesignerDashboard({
                   </div>
 
                   {/* Actions buttons */}
-                  <div className="flex items-center justify-between border-t border-slate-10 border-dashed pt-4.5">
+                  <div className="flex items-center justify-between border-t border-slate-10 border-dashed pt-4.5 gap-2.5">
                     <button
                       onClick={() => onCancelTaskTimer(task.id)}
-                      className="px-3 py-2 border border-slate-300 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-slate-500 hover:text-red-650 hover:bg-slate-50 transition text-[11px] font-semibold flex items-center gap-1 cursor-pointer shrink-0"
+                      title="Pausar el tiempo"
                     >
                       <Ban className="w-3.5 h-3.5" />
-                      <span>Cancelar/Pausar</span>
+                      <span>Pausar / Ajustar</span>
                     </button>
 
                     <button
                       onClick={() => handleCompleteSubmit(task.id)}
                       disabled={pendingStepsCount > 0}
-                      className={`px-4.5 py-2 rounded-lg text-[11px] font-bold flex items-center gap-2 shadow-xs transition cursor-pointer ${
+                      className={`px-4.5 py-2 rounded-lg text-[11px] font-black flex items-center gap-2 shadow-xs transition cursor-pointer grow justify-center ${
                         pendingStepsCount > 0
-                          ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          ? 'bg-slate-100 text-slate-400 border border-slate-205 cursor-not-allowed'
+                          : 'bg-rose-600 hover:bg-rose-700 text-white ring-2 ring-rose-500/20'
                       }`}
+                      title={pendingStepsCount > 0 ? "Completa todos los ítems obligatorios antes de finalizar" : "Hacer click para frena la tarea ahora"}
                     >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{pendingStepsCount > 0 ? `Cumplir procesos (${pendingStepsCount} pendientes)` : 'Entregar y Registrar Hora'}</span>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>
+                        {pendingStepsCount > 0 
+                          ? `Pendiente Checklist (${pendingStepsCount})` 
+                          : '⏹ Botón 2: Finalizado (Frenar Tarea)'
+                        }
+                      </span>
                     </button>
                   </div>
 
@@ -311,10 +416,10 @@ export default function DesignerDashboard({
 
                     <button
                       onClick={() => onStartTask(task.id)}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-2 cursor-pointer transition"
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition ring-2 ring-indigo-500/10"
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>Comenzar Tarea y Iniciar Tiempos</span>
+                      <Play className="w-3.5 h-3.5 fill-white text-white" />
+                      <span>▶ Botón 1: Arrancar Tarea (Iniciar Tiempo)</span>
                     </button>
                   </div>
                 );

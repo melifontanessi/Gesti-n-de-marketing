@@ -74,3 +74,42 @@ export function loadFromLocalStorage<T>(key: string, defaultValue: T): T {
     return defaultValue;
   }
 }
+
+/**
+ * Parses raw CSV or TSV string into an array of string arrays.
+ * Handles Excel-style quote escaping elegantly.
+ */
+export function parseCSVorTSV(text: string): string[][] {
+  const lines = text.split(/\r?\n/);
+  const rows: string[][] = [];
+  
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    
+    let row: string[] = [];
+    if (line.includes('\t')) {
+      // TSV (Direct copy paste from sheets/excel)
+      row = line.split('\t');
+    } else {
+      // CSV (Simple CSV parser handling quotes)
+      let currentVal = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          row.push(currentVal.trim().replace(/^"|"$/g, ''));
+          currentVal = '';
+        } else {
+          currentVal += char;
+        }
+      }
+      row.push(currentVal.trim().replace(/^"|"$/g, ''));
+    }
+    // Filter and sanitize quotes or extra whitespaces
+    row = row.map(cell => cell.trim().replace(/^"|"$/g, '').trim());
+    rows.push(row);
+  }
+  return rows;
+}
