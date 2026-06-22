@@ -1,0 +1,8 @@
+{
+  "name": "Gestion de Marketing",
+  "description": "Aplicacion de uso interno para que analistas y el responsable de area carguen tareas a disenadores con seguimiento del tiempo de ejecucion real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
