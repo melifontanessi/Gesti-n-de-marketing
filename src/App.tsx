@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Sincronización de Mejoras de Marketing v1.3.1 (Reporte Weeklys + Importador Excel/Sheets + Gestión de Usuarios)
+
 import React, { useState, useEffect } from 'react';
 import { Task, ChecklistItem, Designer, Analyst, TaskStatus } from './types';
 import { INITIAL_TASKS, DESIGNERS, ANALYSTS } from './initialData';
