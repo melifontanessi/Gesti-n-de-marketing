@@ -323,10 +323,10 @@ export default function App() {
         {/* Footer info inside sidebar */}
         <div className="p-4 border-t border-slate-800 text-[10px] text-slate-500 flex flex-col gap-0.5 shrink-0">
           <div className="flex items-center justify-between font-light">
-            <span>Versión 1.2</span>
+            <span>Versión 1.3 (Sincronización Completa)</span>
             <span>Establecimiento</span>
           </div>
-          <p className="font-light truncate text-slate-600">Gestor Interno Marketing</p>
+          <p className="font-light truncate text-slate-600">Portal y Gestor Interno de Marketing</p>
         </div>
 
       </aside>
