@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Task, Designer, Analyst, TaskUrgency, ChecklistItem } from '../types';
+import { Task, Designer, Analyst, TaskUrgency, ChecklistItem, TaskStatus } from '../types';
 import TaskForm from './TaskForm';
 import AnalyticsView from './AnalyticsView';
 import { formatDuration, formatDate, formatTime, parseCSVorTSV } from '../utils';
 import { TEMPLATES } from '../initialData';
-import { Plus, ListTodo, BarChart3, AlertCircle, Edit, Trash2, Clock, CheckCircle2, User, Eye, Activity, Users, UserCog, Upload, X, ArrowRight, CheckSquare } from 'lucide-react';
+import { Plus, ListTodo, BarChart3, AlertCircle, Edit, Trash2, Clock, CheckCircle2, User, Eye, Activity, Users, UserCog, Upload, X, ArrowRight, CheckSquare, Download, FileSpreadsheet, ClipboardList, Home } from 'lucide-react';
 
 interface ManagerDashboardProps {
   tasks: Task[];
@@ -40,10 +40,131 @@ export default function ManagerDashboard({
   onAddAnalyst,
   onDeleteAnalyst
 }: ManagerDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'board' | 'analytics' | 'team'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'analytics' | 'team' | 'weekly'>('board');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const [copiedReport, setCopiedReport] = useState(false);
+
+  // Download Report function
+  const handleDownloadReport = () => {
+    const headers = [
+      'Título de Tarea',
+      'Descripción / Especificaciones',
+      'Prioridad / Urgencia',
+      'Diseñador Asignado',
+      'Rol de Diseñador',
+      'Estado Actual',
+      'Fecha de Creación',
+      'Tiempo Registrado (Cronómetro)',
+      'Avance Checklist (Procesos)',
+      'Comentarios de Entrega / Notas'
+    ];
+
+    const rows = tasks.map(task => {
+      const designer = designers.find(d => d.id === task.assigneeId);
+      const designerName = designer ? designer.name : 'Sin asignar';
+      const designerRole = designer ? designer.role : '';
+      
+      const dateStr = formatDate(task.createdAt);
+      const durationStr = task.status === 'Completada' 
+        ? formatDuration(task.durationMs || 0) 
+        : task.status === 'En Progreso' 
+          ? 'En ejecución (Ver cronómetro activo)' 
+          : '0m';
+          
+      const stepsCompleted = task.checklist.filter(c => c.completed).length;
+      const progressStr = `${stepsCompleted} de ${task.checklist.length} pasos`;
+      const cleanDescription = (task.description || '').replace(/"/g, '""');
+      const cleanTitle = (task.title || '').replace(/"/g, '""');
+      const cleanNotes = (task.notes || '').replace(/"/g, '""');
+
+      return [
+        `"${cleanTitle}"`,
+        `"${cleanDescription}"`,
+        `"${task.urgency}"`,
+        `"${designerName}"`,
+        `"${designerRole}"`,
+        `"${task.status}"`,
+        `"${dateStr}"`,
+        `"${durationStr}"`,
+        `"${progressStr}"`,
+        `"${cleanNotes}"`
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    // Add UTF-8 BOM to ensure Excel reads Spanish marks correctly
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const now = new Date();
+    const dateSuffix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    link.setAttribute('download', `reporte_weeklys_marketing_${dateSuffix}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const compileMarkdownReportOutput = (): string => {
+    const completedTasks = tasks.filter(t => t.status === 'Completada');
+    const doingTasks = tasks.filter(t => t.status === 'En Progreso');
+    const pendingTasks = tasks.filter(t => t.status === 'Pendiente');
+    
+    let totalTimeMs = completedTasks.reduce((acc, t) => acc + (t.durationMs || 0), 0);
+    const formattedHours = (totalTimeMs / 3600000).toFixed(1);
+
+    let md = `# 📋 REPORTE SEMANAL DE MARKETING - GANTRY & DISEÑO\n`;
+    md += `Fecha de generación: ${new Date().toLocaleDateString()}\n\n`;
+    md += `## 🚀 MÉTRICAS DE LA SEMANA\n`;
+    md += `- **Entregas Finalizadas:** ${completedTasks.length} requerimientos cerrados\n`;
+    md += `- **Esfuerzo Acumulado:** ${formattedHours} hs reloj cronómetro registradas\n`;
+    md += `- **Tareas en Proceso Activo:** ${doingTasks.length} pendientes de entrega\n`;
+    md += `- **Fila de Espera (Backlog):** ${pendingTasks.length} ítems listados\n\n`;
+    
+    md += `## ✓ ENTREGAS CUMPLIDAS (COMPLETADAS)\n`;
+    if (completedTasks.length === 0) {
+      md += `_No se registraron entregas en este ciclo._\n`;
+    } else {
+      completedTasks.forEach((t, index) => {
+        const designer = designers.find(d => d.id === t.assigneeId);
+        const timeStr = formatDuration(t.durationMs || 0);
+        md += `${index + 1}. **${t.title}**\n`;
+        md += `   - **Encargado:** ${designer ? designer.name : 'Sin asignar'}\n`;
+        md += `   - **Tiempo de producción:** ${timeStr}\n`;
+        if (t.notes) md += `   - **Notas/Enlaces de Entrega:** ${t.notes}\n`;
+        md += `\n`;
+      });
+    }
+
+    md += `## ⏳ EN PROCESO (CRONÓMETRO CORRIENDO)\n`;
+    if (doingTasks.length === 0) {
+      md += `_No hay tareas activas en este momento._\n`;
+    } else {
+      doingTasks.forEach((t, index) => {
+        const designer = designers.find(d => d.id === t.assigneeId);
+        md += `- [ ] **${t.title}** (${designer ? designer.name : 'Sin asignar'}) - _Urgencia: ${t.urgency}_\n`;
+      });
+    }
+
+    return md;
+  };
+
+  const handleCopyReport = () => {
+    const content = compileMarkdownReportOutput();
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedReport(true);
+      setTimeout(() => setCopiedReport(false), 2500);
+    }).catch(() => {
+      alert('No se pudo copiar automáticamente. Puedes seleccionar el reporte en el recuadro de abajo para copiarlo manualmente.');
+    });
+  };
   
   // User Management State
   const [isAddingUser, setIsAddingUser] = useState(false);
@@ -160,6 +281,19 @@ export default function ManagerDashboard({
             <Users className="w-3.5 h-3.5" />
             <span>Equipo y Analistas ({designers.length + analysts.length})</span>
           </button>
+          
+          <button
+            id="tab-btn-weekly"
+            onClick={() => setActiveTab('weekly')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              activeTab === 'weekly'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Reporte Weeklys ✨</span>
+          </button>
         </div>
 
         {/* Action: Open Task Creation or Sheets Import */}
@@ -185,6 +319,30 @@ export default function ManagerDashboard({
         )}
 
       </div>
+
+      {/* Home/Back Operational Controller when editing/adding/importing (Requirement 3) */}
+      {(isAddingTask || isImporting || editingTask) && (
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200/80 px-4 py-3.5 rounded-xl shadow-2xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <Home className="w-4 h-4 text-slate-500 animate-pulse" />
+            <div className="text-[11.5px] text-slate-600 font-medium">
+              Estas cargando o editando tareas. Una vez que termines, presiona para volver.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAddingTask(false);
+              setIsImporting(false);
+              setEditingTask(null);
+            }}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl hover:shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>Volver al Tablero General (Inicio)</span>
+          </button>
+        </div>
+      )}
 
       {/* Sheets / CSV Import Panel */}
       {isImporting && (
@@ -276,6 +434,25 @@ export default function ManagerDashboard({
                       <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 font-light">
                         {task.description}
                       </p>
+                      {(task.campaign || task.channel || task.contentType) && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 select-none text-[9px] font-bold">
+                          {task.campaign && (
+                            <span className="bg-indigo-50 border border-indigo-200 text-indigo-750 px-1 py-0.5 rounded-sm" title="Campaña">
+                              📢 {task.campaign}
+                            </span>
+                          )}
+                          {task.channel && (
+                            <span className="bg-sky-50 border border-sky-150 text-sky-750 px-1 py-0.5 rounded-sm" title="Canal">
+                              🌐 {task.channel}
+                            </span>
+                          )}
+                          {task.contentType && (
+                            <span className="bg-pink-50 border border-pink-150 text-pink-750 px-1 py-0.5 rounded-sm" title="Tipo de Contenido">
+                              🎨 {task.contentType}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-400 font-medium select-none">
                         <span className="font-light">Soli. por:</span>
                         <span className="font-semibold text-slate-500">{getCreatorName(task.creatorId)}</span>
@@ -364,6 +541,25 @@ export default function ManagerDashboard({
                       <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 font-light">
                         {task.description}
                       </p>
+                      {(task.campaign || task.channel || task.contentType) && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 select-none text-[9px] font-bold">
+                          {task.campaign && (
+                            <span className="bg-indigo-50 border border-indigo-200 text-indigo-750 px-1 py-0.5 rounded-sm" title="Campaña">
+                              📢 {task.campaign}
+                            </span>
+                          )}
+                          {task.channel && (
+                            <span className="bg-sky-50 border border-sky-150 text-sky-750 px-1 py-0.5 rounded-sm" title="Canal">
+                              🌐 {task.channel}
+                            </span>
+                          )}
+                          {task.contentType && (
+                            <span className="bg-pink-50 border border-pink-150 text-pink-750 px-1 py-0.5 rounded-sm" title="Tipo de Contenido">
+                              🎨 {task.contentType}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-400 font-medium select-none">
                         <span className="font-light">Soli. por:</span>
                         <span className="font-semibold text-slate-550">{getCreatorName(task.creatorId)}</span>
@@ -467,7 +663,26 @@ export default function ManagerDashboard({
                           "{task.notes}"
                         </p>
                       )}
-                      <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-450 font-medium select-none">
+                      {(task.campaign || task.channel || task.contentType) && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 select-none text-[9px] font-bold">
+                          {task.campaign && (
+                            <span className="bg-indigo-50 border border-indigo-200 text-indigo-750 px-1 py-0.5 rounded-sm" title="Campaña">
+                              📢 {task.campaign}
+                            </span>
+                          )}
+                          {task.channel && (
+                            <span className="bg-sky-50 border border-sky-150 text-sky-755 px-1 py-0.5 rounded-sm" title="Canal">
+                              🌐 {task.channel}
+                            </span>
+                          )}
+                          {task.contentType && (
+                            <span className="bg-pink-50 border border-pink-150 text-pink-755 px-1 py-0.5 rounded-sm" title="Tipo de Contenido">
+                              🎨 {task.contentType}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-455 font-medium select-none">
                         <span className="font-light">Soli. por:</span>
                         <span className="font-semibold text-slate-500">{getCreatorName(task.creatorId)}</span>
                       </div>
@@ -501,6 +716,198 @@ export default function ManagerDashboard({
       ) : activeTab === 'analytics' ? (
         <div className="animate-in fade-in duration-300">
           <AnalyticsView tasks={tasks} designers={designers} />
+        </div>
+      ) : activeTab === 'weekly' ? (
+        <div className="animate-in fade-in duration-300 space-y-6 max-w-5xl mx-auto pb-10">
+          
+          {/* Header Card */}
+          <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-xs relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10 relative">
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-5 h-5 text-indigo-400 animate-bounce" />
+                  Consola de Estado para Reuniones de Weeklys
+                </h3>
+                <p className="text-xs text-slate-400 font-light max-w-2xl leading-relaxed">
+                  Optimiza tus reuniones semanales descargando listados completos compatibles con Excel / Google Sheets o copia un resumen de texto formateado en Markdown para pegar en los canales Slack, Teams o e-mails de reporte.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadReport}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Descargar Excel / CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyReport}
+                  className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition shrink-0 ${copiedReport ? 'bg-indigo-500 font-extrabold' : 'bg-slate-800 hover:bg-slate-700 border border-slate-700'}`}
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  <span>{copiedReport ? '¡Copiado!' : 'Copiar Resumen'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bento metrics counters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-2xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Entregas Realizadas</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-black text-slate-900 font-mono">
+                  {tasks.filter(t => t.status === 'Completada').length}
+                </span>
+                <span className="text-xs font-semibold text-emerald-600">Completas</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-light mt-1.5">Tareas finalizadas este período.</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-2xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Horas Acumuladas</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-black text-indigo-600 font-mono">
+                  {(tasks.filter(t => t.status === 'Completada').reduce((acc, t) => acc + (t.durationMs || 0), 0) / 3600000).toFixed(1)}
+                </span>
+                <span className="text-xs font-semibold text-indigo-500">Horas</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-light mt-1.5">Tiempo medido por cronómetros.</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-2xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">En Progreso Activo</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-black text-amber-600 font-mono">
+                  {tasks.filter(t => t.status === 'En Progreso').length}
+                </span>
+                <span className="text-xs font-semibold text-amber-500 font-sans">Activas</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-light mt-1.5">Diseñadores con cronómetro activo.</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-2xs">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Calidad de Procesos</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-black text-emerald-600 font-mono">
+                  {(() => {
+                    const finished = tasks.filter(t => t.status === 'Completada');
+                    if (finished.length === 0) return '100';
+                    const ticks = finished.reduce((acc, t) => acc + t.checklist.filter(c => c.completed).length, 0);
+                    const total = finished.reduce((acc, t) => acc + t.checklist.length, 0);
+                    return total === 0 ? '100' : Math.round((ticks / total) * 100).toString();
+                  })()}%
+                </span>
+                <span className="text-xs font-semibold text-emerald-500">Ok</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-light mt-1.5">Procesos de control superados.</p>
+            </div>
+
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Visual preview list on the left (2/3 columns) */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
+                <div className="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Vistazo de Entregables para la Reunión</span>
+                  <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-md font-bold">Planilla Actualizada</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/50 text-slate-500 font-bold border-b border-slate-150">
+                        <th className="p-4">Tarea / Título</th>
+                        <th className="p-4">Encargado</th>
+                        <th className="p-4">Tiempo</th>
+                        <th className="p-4">Procesos</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {tasks.map(task => {
+                        const ds = designers.find(d => d.id === task.assigneeId);
+                        return (
+                          <tr key={task.id} className="hover:bg-slate-50/50 transition">
+                            <td className="p-4 max-w-xs">
+                              <span className="font-bold text-slate-800 block line-clamp-1">{task.title}</span>
+                              <span className="text-[10px] text-slate-400 font-light mt-0.5 block line-clamp-1">{task.description}</span>
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1">
+                                <span className="w-3.5 h-3.5 rounded-full text-[8px] font-black flex items-center justify-center bg-slate-200 text-slate-800">
+                                  {ds?.name.charAt(0)}
+                                </span>
+                                <span className="font-medium">{ds?.name || 'Sin Asignar'}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 font-mono text-[11px] whitespace-nowrap">
+                              {task.status === 'Completada' ? (
+                                <span className="text-emerald-700 bg-emerald-50 border border-emerald-250 font-bold px-2 py-0.5 rounded-md">
+                                  {formatDuration(task.durationMs || 0)}
+                                </span>
+                              ) : task.status === 'En Progreso' ? (
+                                <span className="text-amber-805 bg-amber-50 border border-amber-250 font-bold px-2 py-0.5 rounded-md animate-pulse">
+                                  Corriendo...
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="p-4 whitespace-nowrap text-slate-550">
+                              <span className="font-semibold font-mono text-[11px]">
+                                {task.checklist.filter(c => c.completed).length} / {task.checklist.length} ok
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {tasks.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="text-center py-10 text-slate-400 italic">No hay tareas cargadas.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Markdown output block on the right (1/3 column) */}
+            <div className="space-y-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xs overflow-hidden text-white h-full flex flex-col justify-between">
+                
+                <div className="px-5 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-indigo-300 tracking-wider">Markdown compilado</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyReport}
+                    className="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-250 px-2.5 py-1 rounded-md transition font-bold"
+                  >
+                    {copiedReport ? '✓ Copiado' : 'Copiar'}
+                  </button>
+                </div>
+
+                <div className="p-4 font-mono text-[10px] leading-relaxed select-all overflow-y-auto max-h-[350px] whitespace-pre-wrap text-slate-350 grow">
+                  {compileMarkdownReportOutput()}
+                </div>
+
+                <div className="p-4.5 bg-slate-950/80 border-t border-slate-850/50 text-center">
+                  <p className="text-[10px] text-slate-500 font-light leading-snug">
+                    Pulsa "Copiar" arriba para copiar este resumen listo para Slack o mail.
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
         </div>
       ) : (
         <div className="animate-in fade-in duration-300 space-y-8 max-w-4xl mx-auto pb-10">
@@ -1089,7 +1496,7 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
     try {
       const rows = parseCSVorTSV(rawText);
       if (rows.length < 2) {
-        setErrorMsg('La planilla de tareas debe tener al menos una fila de encabezados (ej. "Título", "Especialista") y una fila de datos.');
+        setErrorMsg('La planilla de tareas debe tener al menos una fila de encabezados (ej. "Campaña", "Tipo de contenido", "Descripción", "Responsable") y una fila de datos.');
         return;
       }
       
@@ -1099,24 +1506,65 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
       let titleIdx = headers.findIndex(h => h.includes('tit') || h.includes('title') || h.includes('tarea') || h.includes('nombre'));
       let descIdx = headers.findIndex(h => h.includes('desc') || h.includes('det') || h.includes('espec') || h.includes('coment'));
       let urgencyIdx = headers.findIndex(h => h.includes('urg') || h.includes('prio') || h.includes('rele'));
-      let assigneeIdx = headers.findIndex(h => h.includes('dis') || h.includes('asig') || h.includes('owner') || h.includes('encarg') || h.includes('espec'));
+      let assigneeIdx = headers.findIndex(h => h.includes('resp') || h.includes('asig') || h.includes('dis') || h.includes('owner') || h.includes('encarg') || h.includes('espec'));
       let templateIdx = headers.findIndex(h => h.includes('plan') || h.includes('temp') || h.includes('proc'));
       
+      // Mappings matching team spreadsheet format
+      let campaignIdx = headers.findIndex(h => h.includes('camp') || h.includes('marca'));
+      let channelIdx = headers.findIndex(h => h.includes('canal') || h.includes('medio'));
+      let contentTypeIdx = headers.findIndex(h => h.includes('tipo') || h.includes('contenido'));
+      let statusIdx = headers.findIndex(h => h.includes('est') || h.includes('completado'));
+      
       // Fallbacks if header wasn't super direct but columns exist
-      if (titleIdx === -1) titleIdx = 0; // default primary column
-      if (descIdx === -1 && headers.length > 1) descIdx = 1;
+      if (descIdx === -1) {
+        // If they have "descripcion" column, let's look for any column starting with desc
+        descIdx = headers.findIndex(h => h.startsWith('desc'));
+      }
       
       const tasksToPreview: any[] = [];
       const timestampRef = Date.now();
       
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (row.length === 0) continue;
+        if (row.length === 0 || row.join('').trim() === '') continue;
         
-        const titleStr = row[titleIdx]?.trim() || '';
-        if (!titleStr) continue; // Skip blank titles
-        
+        const campaignStr = campaignIdx !== -1 && row[campaignIdx] ? row[campaignIdx].trim() : '';
+        const channelStr = channelIdx !== -1 && row[channelIdx] ? row[channelIdx].trim() : '';
+        const contentTypeStr = contentTypeIdx !== -1 && row[contentTypeIdx] ? row[contentTypeIdx].trim() : '';
         const descStr = descIdx !== -1 && row[descIdx] ? row[descIdx].trim() : '';
+        
+        // Auto generate dynamic high-quality Title if not present in CSV
+        let titleStr = '';
+        if (titleIdx !== -1 && row[titleIdx]?.trim()) {
+          titleStr = row[titleIdx].trim();
+        } else {
+          const parts = [];
+          if (campaignStr) parts.push(campaignStr);
+          if (contentTypeStr) parts.push(contentTypeStr);
+          
+          if (parts.length > 0) {
+            titleStr = `[${parts.join(' - ')}]`;
+            if (descStr) {
+              const shortenedDesc = descStr.split('\n')[0].replace(/["']/g, '').substring(0, 45).trim();
+              titleStr += ` ${shortenedDesc}`;
+            }
+          } else if (descStr) {
+            titleStr = descStr.split('\n')[0].replace(/["']/g, '').substring(0, 50).trim() || 'Tarea sin título';
+          } else {
+            titleStr = `Tarea cargada #${i}`;
+          }
+        }
+        
+        // State status mapping
+        let statusVal: TaskStatus = 'Pendiente';
+        if (statusIdx !== -1 && row[statusIdx]) {
+          const sStr = row[statusIdx].toLowerCase().trim();
+          if (sStr.includes('comple') || sStr.includes('hecho') || sStr.includes('final') || sStr === 'si' || sStr === 'yes') {
+            statusVal = 'Completada';
+          } else if (sStr.includes('progr') || sStr.includes('curs') || sStr.includes('proce') || sStr.includes('haciendo')) {
+            statusVal = 'En Progreso';
+          }
+        }
         
         // Urgency level resolution
         let urgencyVal: TaskUrgency = 'Media';
@@ -1126,41 +1574,51 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
           else if (uStr.includes('baj')) urgencyVal = 'Baja';
         }
         
-        // Designer assignee resolution
+        // Designer assignee resolution (handling @Victoria prefixes overlap matches)
         let assigneeIdVal = designers[0]?.id || '';
         if (assigneeIdx !== -1 && row[assigneeIdx]) {
-          const dsName = row[assigneeIdx].toLowerCase().trim();
-          const found = designers.find(d => 
-            d.name.toLowerCase().includes(dsName) || 
-            dsName.includes(d.name.toLowerCase().split(' ')[0])
-          );
-          if (found) {
-            assigneeIdVal = found.id;
+          const dsName = row[assigneeIdx].replace('@', '').toLowerCase().trim();
+          if (dsName) {
+            const found = designers.find(d => {
+              const desNameLower = d.name.toLowerCase();
+              const firstWord = dsName.split(' ')[0];
+              return desNameLower.includes(dsName) || 
+                     dsName.includes(desNameLower) ||
+                     (firstWord.length > 2 && desNameLower.includes(firstWord));
+            });
+            if (found) {
+              assigneeIdVal = found.id;
+            }
           }
         }
         
-        // Template / Checklist resolution
-        let templateIdVal = TEMPLATES[0]?.id || '';
-        let checklistPreset = TEMPLATES[0]?.checklistPreset.map((step, idx) => ({
-          id: `step_import_${timestampRef}_${i}_${idx}`,
-          text: step,
-          completed: false
-        })) || [];
+        // Smart Template checklist preset matching content type
+        let templateIdVal = '';
+        let checklistPreset: any[] = [];
+        let detectedTemplate = null;
         
-        if (templateIdx !== -1 && row[templateIdx]) {
-          const tmName = row[templateIdx].toLowerCase().trim();
-          const matchedTemp = TEMPLATES.find(t => 
-            t.title.toLowerCase().includes(tmName) || 
-            tmName.includes(t.title.toLowerCase())
-          );
-          if (matchedTemp) {
-            templateIdVal = matchedTemp.id;
-            checklistPreset = matchedTemp.checklistPreset.map((step, idx) => ({
-              id: `step_import_${timestampRef}_${i}_${idx}`,
-              text: step,
-              completed: false
-            }));
+        if (contentTypeStr) {
+          const ctLower = contentTypeStr.toLowerCase();
+          if (ctLower.includes('hist') || ctLower.includes('stori') || ctLower.includes('red') || ctLower.includes('ig') || ctLower.includes('fb') || ctLower.includes('link')) {
+            detectedTemplate = TEMPLATES.find(t => t.id === 'temp_rrss');
+          } else if (ctLower.includes('banner') || ctLower.includes('ads') || ctLower.includes('slide') || ctLower.includes('web') || ctLower.includes('mail')) {
+            detectedTemplate = TEMPLATES.find(t => t.id === 'temp_ads') || TEMPLATES.find(t => t.id === 'temp_web');
+          } else if (ctLower.includes('follet') || ctLower.includes('flyer') || ctLower.includes('imprent') || ctLower.includes('print')) {
+            detectedTemplate = TEMPLATES.find(t => t.id === 'temp_print');
           }
+        }
+        
+        if (!detectedTemplate) {
+          detectedTemplate = TEMPLATES[0]; // fallback
+        }
+        
+        if (detectedTemplate) {
+          templateIdVal = detectedTemplate.id;
+          checklistPreset = detectedTemplate.checklistPreset.map((step, idx) => ({
+            id: `step_import_${timestampRef}_${i}_${idx}`,
+            text: step,
+            completed: statusVal === 'Completada' // Auto mark as done if task is complete!
+          }));
         }
         
         tasksToPreview.push({
@@ -1170,8 +1628,12 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
           urgency: urgencyVal,
           assigneeId: assigneeIdVal,
           creatorId: analysts[0]?.id || '',
-          templateId: templateIdVal,
-          checklist: checklistPreset
+          templateId: templateIdVal || undefined,
+          checklist: checklistPreset,
+          campaign: campaignStr || undefined,
+          channel: channelStr || undefined,
+          contentType: contentTypeStr || undefined,
+          status: statusVal
         });
       }
       
@@ -1515,10 +1977,12 @@ Stories Promo	Descuentos de la semana	Media	Giuliana	Edición de Video"
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] font-extrabold text-slate-550 uppercase tracking-wider select-none">
                     <th className="py-3 px-4">Título</th>
+                    <th className="py-3 px-3">Campaña / Canal / Tipo</th>
                     <th className="py-3 px-3">Descripción</th>
                     <th className="py-3 px-3">Prioridad</th>
                     <th className="py-3 px-3">Diseñador Responsable</th>
                     <th className="py-3 px-3">Workflow / Checklist</th>
+                    <th className="py-3 px-3">Estado</th>
                     <th className="py-3 px-3 text-center">Quitar</th>
                   </tr>
                 </thead>
@@ -1526,7 +1990,7 @@ Stories Promo	Descuentos de la semana	Media	Giuliana	Edición de Video"
                   {parsedTasks.map((t, idx) => (
                     <tr key={t.id_temp} className="text-xs text-slate-800 hover:bg-slate-50/50 transition">
                       {/* Title */}
-                      <td className="py-2.5 px-4 max-w-[180px]">
+                      <td className="py-2.5 px-4 min-w-[150px] max-w-[200px]">
                         <input
                           aria-label="Task title preview"
                           type="text"
@@ -1534,6 +1998,38 @@ Stories Promo	Descuentos de la semana	Media	Giuliana	Edición de Video"
                           onChange={(e) => handleFieldChange(t.id_temp, 'title', e.target.value)}
                           className="w-full text-slate-805 bg-white border border-slate-200 hover:border-slate-350 rounded-md px-2 py-1 font-semibold text-xs focus:ring-1 focus:ring-indigo-500/50 focus:outline-hidden"
                         />
+                      </td>
+
+                      {/* Campaign / Channel / ContentType */}
+                      <td className="py-2.5 px-3 min-w-[210px] max-w-[260px]">
+                        <div className="space-y-1">
+                          <input
+                            aria-label="Campaña"
+                            type="text"
+                            value={t.campaign || ''}
+                            onChange={(e) => handleFieldChange(t.id_temp, 'campaign', e.target.value)}
+                            placeholder="Campaña"
+                            className="w-full text-[10px] text-slate-800 bg-white border border-slate-205 rounded px-1.5 py-0.5 focus:outline-hidden focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                          <div className="flex gap-1.5">
+                            <input
+                              aria-label="Canal"
+                              type="text"
+                              value={t.channel || ''}
+                              onChange={(e) => handleFieldChange(t.id_temp, 'channel', e.target.value)}
+                              placeholder="Canal"
+                              className="w-1/2 text-[10px] text-slate-550 bg-white border border-slate-205 rounded px-1 px-1 py-0.5 focus:outline-hidden focus:ring-1 focus:ring-indigo-500/50"
+                            />
+                            <input
+                              aria-label="Tipo"
+                              type="text"
+                              value={t.contentType || ''}
+                              onChange={(e) => handleFieldChange(t.id_temp, 'contentType', e.target.value)}
+                              placeholder="Tipo"
+                              className="w-1/2 text-[10px] text-slate-550 bg-white border border-slate-205 rounded px-1 px-1 py-0.5 focus:outline-hidden focus:ring-1 focus:ring-indigo-500/50"
+                            />
+                          </div>
+                        </div>
                       </td>
                       
                       {/* Description */}
@@ -1597,6 +2093,35 @@ Stories Promo	Descuentos de la semana	Media	Giuliana	Edición de Video"
                               {p.title}
                             </option>
                           ))}
+                        </select>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-3">
+                        <select
+                          aria-label="Task status preview"
+                          value={t.status || 'Pendiente'}
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            // Also adjust checklist steps completed state based on setting status to Completada
+                            const updatedChecklist = t.checklist.map((step: any) => ({
+                              ...step,
+                              completed: newStatus === 'Completada'
+                            }));
+                            handleFieldChange(t.id_temp, 'status', newStatus);
+                            handleFieldChange(t.id_temp, 'checklist', updatedChecklist);
+                          }}
+                          className={`border rounded-md px-2 py-1 text-[11px] font-bold focus:outline-hidden focus:ring-1 focus:ring-indigo-505 cursor-pointer ${
+                            t.status === 'Completada' 
+                              ? 'bg-emerald-50 border-emerald-250 text-emerald-800' 
+                              : t.status === 'En Progreso'
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                              : 'bg-slate-50 border-slate-205 text-slate-800'
+                          }`}
+                        >
+                          <option value="Pendiente">Pendiente</option>
+                          <option value="En Progreso">En Progreso</option>
+                          <option value="Completada">Completada</option>
                         </select>
                       </td>
 

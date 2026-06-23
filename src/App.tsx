@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Task, ChecklistItem, Designer, Analyst } from './types';
+import { Task, ChecklistItem, Designer, Analyst, TaskStatus } from './types';
 import { INITIAL_TASKS, DESIGNERS, ANALYSTS } from './initialData';
 import { loadFromLocalStorage, saveToLocalStorage } from './utils';
 import ManagerDashboard from './components/ManagerDashboard';
 import DesignerDashboard from './components/DesignerDashboard';
-import { BookOpen, CheckSquare, Clock, ShieldCheck, Heart, Info, RefreshCw, Briefcase, User, Users, UserCog } from 'lucide-react';
+import { BookOpen, CheckSquare, Clock, ShieldCheck, Heart, Info, RefreshCw, Briefcase, User, Users, UserCog, Home } from 'lucide-react';
 
 export default function App() {
   // Load tasks from localStorage or use initial pre-loaded ones
@@ -113,11 +113,11 @@ export default function App() {
   };
 
   // Action: Add new task (Analyst/Manager flow)
-  const handleAddTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
+  const handleAddTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'status'> & { status?: TaskStatus }) => {
     const newTask: Task = {
       ...taskData,
-      id: `task_${Date.now()}`,
-      status: 'Pendiente',
+      id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      status: taskData.status || 'Pendiente',
       createdAt: Date.now()
     };
     setTasks(prev => [newTask, ...prev]);
@@ -349,6 +349,18 @@ export default function App() {
           </div>
           
           <div className="flex items-center space-x-4 shrink-0">
+            {currentUser !== 'manager' && (
+              <button
+                id="btn-global-home"
+                onClick={() => setCurrentUser('manager')}
+                className="px-3 py-1.5 bg-slate-900 text-white font-semibold text-xs rounded-xl hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs border border-slate-700/50"
+                title="Volver al Panel General (Home)"
+              >
+                <Home className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Panel General (Home)</span>
+              </button>
+            )}
+            
             {/* Quick simulated account stats/avatar */}
             <div className="flex items-center space-x-3.5">
               <span className="hidden sm:inline-block text-right">
@@ -480,9 +492,13 @@ export default function App() {
                 designerId={currentUser}
                 tasks={tasks}
                 designers={designers}
+                analysts={analysts}
                 onStartTask={handleStartTask}
                 onCompleteTask={handleCompleteTask}
                 onCancelTaskTimer={handleCancelTaskTimer}
+                onAddTask={handleAddTask}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
               />
             </div>
           )}

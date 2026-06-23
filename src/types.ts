@@ -45,6 +45,9 @@ export interface Task {
   endTime?: number;   // timestamp
   durationMs?: number; // duration in milliseconds
   notes?: string;     // comments or delivery links
+  campaign?: string;  // Campaign (e.g. SLIDE, Ofertas semanales, Folleto)
+  channel?: string;   // Channel (e.g. Web, Mailing, Redes)
+  contentType?: string; // Content Type (e.g. Banners, Historia, Video)
 }
 
 export interface TaskTemplate {

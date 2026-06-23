@@ -23,6 +23,11 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
   const [creatorId, setCreatorId] = useState(() => initialTask?.creatorId || analysts[0]?.id || '');
   const [urgency, setUrgency] = useState<TaskUrgency>('Media');
   
+  // Custom fields matching team spreadsheet
+  const [campaign, setCampaign] = useState('');
+  const [channel, setChannel] = useState('');
+  const [contentType, setContentType] = useState('');
+  
   // Checklist dynamic state
   const [checklist, setChecklist] = useState<Omit<ChecklistItem, 'completed'>[]>([]);
   const [newStepText, setNewStepText] = useState('');
@@ -38,6 +43,9 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
       setUrgency(initialTask.urgency);
       setChecklist(initialTask.checklist.map(item => ({ id: item.id, text: item.text })));
       setSelectedTemplateId(initialTask.templateId || '');
+      setCampaign(initialTask.campaign || '');
+      setChannel(initialTask.channel || '');
+      setContentType(initialTask.contentType || '');
     }
   }, [initialTask, analysts]);
 
@@ -52,6 +60,21 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
       setSelectedTemplateId(templateId);
       setTitle(template.title);
       setDescription(template.description);
+      
+      // Smart defaults for team workflow
+      if (templateId === 'temp_rrss') {
+        setChannel('Redes');
+        setContentType('Historia');
+      } else if (templateId === 'temp_ads') {
+        setChannel('Web');
+        setContentType('Banners');
+      } else if (templateId === 'temp_web') {
+        setChannel('Web');
+        setContentType('Banners');
+      } else if (templateId === 'temp_print') {
+        setChannel('Mailing');
+        setContentType('Banners');
+      }
       
       // Generate a checklist using the preset steps
       const newChecklist = template.checklistPreset.map((step, index) => ({
@@ -100,7 +123,10 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
       creatorId,
       urgency,
       templateId: selectedTemplateId || undefined,
-      checklist: compiledChecklist
+      checklist: compiledChecklist,
+      campaign: campaign.trim() || undefined,
+      channel: channel.trim() || undefined,
+      contentType: contentType.trim() || undefined
     });
 
     // Reset if creating new
@@ -109,6 +135,9 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
       setDescription('');
       setChecklist([]);
       setSelectedTemplateId('');
+      setCampaign('');
+      setChannel('');
+      setContentType('');
     }
   };
 
@@ -174,6 +203,9 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
                   setTitle('');
                   setDescription('');
                   setChecklist([]);
+                  setCampaign('');
+                  setChannel('');
+                  setContentType('');
                 }}
                 className={`p-2.5 rounded-lg text-left text-xs transition border border-dashed cursor-pointer flex items-center justify-center font-medium ${
                   !selectedTemplateId
@@ -201,6 +233,70 @@ export default function TaskForm({ onSubmit, onCancel, initialTask, designers, a
             placeholder="Ej. Diseño de Banner para Campaña Cyber"
             className="w-full text-slate-900 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
           />
+        </div>
+
+        {/* Custom fields matching team spreadsheet */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/55 p-3.5 rounded-xl border border-slate-200/60">
+          <div className="space-y-1">
+            <label htmlFor="task-campaign" className="text-[11px] font-bold text-slate-650 block uppercase tracking-wide">
+              Campaña <span className="text-slate-400 font-light text-[10px]">(Ej. SLIDE)</span>
+            </label>
+            <input
+              id="task-campaign"
+              type="text"
+              value={campaign}
+              onChange={(e) => setCampaign(e.target.value)}
+              placeholder="SLIDE, Ofertas semanales, Folleto..."
+              className="w-full text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-550 transition"
+              list="campaigns-suggestions"
+            />
+            <datalist id="campaigns-suggestions">
+              <option value="SLIDE" />
+              <option value="Ofertas semanales" />
+              <option value="Folleto" />
+              <option value="Cuidado personal" />
+            </datalist>
+          </div>
+          
+          <div className="space-y-1">
+            <label htmlFor="task-channel" className="text-[11px] font-bold text-slate-650 block uppercase tracking-wide">
+              Canal <span className="text-slate-400 font-light text-[10px]">(Ej. Web)</span>
+            </label>
+            <input
+              id="task-channel"
+              type="text"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              placeholder="Web, Mailing, Redes..."
+              className="w-full text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-550 transition"
+              list="channels-suggestions"
+            />
+            <datalist id="channels-suggestions">
+              <option value="Web" />
+              <option value="Mailing" />
+              <option value="Redes" />
+            </datalist>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="task-content-type" className="text-[11px] font-bold text-slate-650 block uppercase tracking-wide">
+              Tipo de contenido <span className="text-slate-400 font-light text-[10px]">(Ej. Banners)</span>
+            </label>
+            <input
+              id="task-content-type"
+              type="text"
+              value={contentType}
+              onChange={(e) => setContentType(e.target.value)}
+              placeholder="Banners, Historia, Video..."
+              className="w-full text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-550 transition"
+              list="content-types-suggestions"
+            />
+            <datalist id="content-types-suggestions">
+              <option value="Banners" />
+              <option value="Historia" />
+              <option value="Video" />
+            </datalist>
+          </div>
         </div>
 
         {/* Description */}

@@ -145,6 +145,9 @@ export const INITIAL_TASKS: Task[] = [
     endTime: now - 2 * dayInMs - 1.5 * hourInMs, // Tomó 2h 30m
     durationMs: 2.5 * hourInMs,
     notes: 'Entregado en Drive. Lucía comentó: Se extendió un poco el tiempo porque el cliente envió un cambio de copys a mitad del proceso.',
+    campaign: 'Folleto',
+    channel: 'Redes',
+    contentType: 'Historia',
     checklist: [
       { id: 'step_1', text: 'Confirmar dimensiones requeridas (ej: 1080x1080 Post, 1080x1920 Story).', completed: true },
       { id: 'step_2', text: 'Alinear con la paleta de colores y línea gráfica de la marca seleccionada.', completed: true },
@@ -164,6 +167,9 @@ export const INITIAL_TASKS: Task[] = [
     status: 'En Progreso',
     createdAt: now - 1 * dayInMs,
     startTime: now - 2.5 * hourInMs, // Lleva 2.5 horas haciéndose
+    campaign: 'Ofertas semanales',
+    channel: 'Mailing',
+    contentType: 'Banners',
     checklist: [
       { id: 'step_1', text: 'Correr prueba de legibilidad móvil (simular pantalla chica).', completed: true },
       { id: 'step_2', text: 'Verificar restricciones de porcentaje de texto en imagen.', completed: true },
@@ -181,6 +187,9 @@ export const INITIAL_TASKS: Task[] = [
     urgency: 'Media',
     status: 'Pendiente',
     createdAt: now - 12 * hourInMs,
+    campaign: 'SLIDE',
+    channel: 'Web',
+    contentType: 'Banners',
     checklist: [
       { id: 'step_1', text: 'Verificar encuadre considerando safe-zones donde irá texto dinámico.', completed: false },
       { id: 'step_2', text: 'Revisar resolución de assets de producto integrados en el diseño.', completed: false },
@@ -198,6 +207,9 @@ export const INITIAL_TASKS: Task[] = [
     urgency: 'Baja',
     status: 'Pendiente',
     createdAt: now - 2 * dayInMs,
+    campaign: 'Folleto',
+    channel: 'Mailing',
+    contentType: 'Banners',
     checklist: [
       { id: 'step_1', text: 'Convertir el perfil de color a modo de impresión CMYK.', completed: false },
       { id: 'step_2', text: 'Añadir 3mm de demasía (sangría / bleed) en el documento de corte.', completed: false },
@@ -219,6 +231,9 @@ export const INITIAL_TASKS: Task[] = [
     endTime: now - 1 * dayInMs - 1.2 * hourInMs, // Tomó 1h 48m
     durationMs: 1.8 * hourInMs,
     notes: 'Javier comentó: Todo liso, ya subido a la carpeta FAQ.',
+    campaign: 'Folleto',
+    channel: 'Redes',
+    contentType: 'Historia',
     checklist: [
       { id: 'step_1', text: 'Confirmar dimensiones requeridas (ej: 1080x1080 Post, 1080x1920 Story).', completed: true },
       { id: 'step_2', text: 'Alinear con la paleta de colores y línea gráfica de la marca seleccionada.', completed: true },
