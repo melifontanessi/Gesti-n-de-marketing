@@ -1500,7 +1500,13 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
         return;
       }
       
-      const headers = rows[0].map(h => h.toLowerCase().trim());
+      // Normalize headers (lowercase, trim, and strip Spanish accents for maximum matching precision)
+      const headers = rows[0].map(h => 
+        h.toLowerCase()
+         .trim()
+         .normalize("NFD")
+         .replace(/[\u0300-\u036f]/g, "")
+      );
       
       // Auto-detect index mappings
       let titleIdx = headers.findIndex(h => h.includes('tit') || h.includes('title') || h.includes('tarea') || h.includes('nombre'));
@@ -1555,13 +1561,15 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
           }
         }
         
-        // State status mapping
+        // State status mapping with negative check to avoid "Sin completar" matching "Completada"
         let statusVal: TaskStatus = 'Pendiente';
         if (statusIdx !== -1 && row[statusIdx]) {
           const sStr = row[statusIdx].toLowerCase().trim();
-          if (sStr.includes('comple') || sStr.includes('hecho') || sStr.includes('final') || sStr === 'si' || sStr === 'yes') {
+          const isNegativeStatus = sStr.includes('sin') || sStr.includes('no') || sStr.includes('pend');
+          
+          if (!isNegativeStatus && (sStr.includes('comple') || sStr.includes('hecho') || sStr.includes('final') || sStr === 'si' || sStr === 'yes')) {
             statusVal = 'Completada';
-          } else if (sStr.includes('progr') || sStr.includes('curs') || sStr.includes('proce') || sStr.includes('haciendo')) {
+          } else if (sStr.includes('progr') || sStr.includes('curs') || sStr.includes('proce') || sStr.includes('haciendo') || sStr.includes('ejecut')) {
             statusVal = 'En Progreso';
           }
         }
@@ -1870,16 +1878,16 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
                 
                 {/* Instructions steps */}
                 <div className="bg-slate-50 rounded-lg p-3.5 border border-slate-200 text-[11px] text-slate-600 space-y-2">
-                  <span className="font-bold text-slate-700 block text-xs">💡 Instrucciones de preparado de planilla:</span>
+                  <span className="font-bold text-slate-700 block text-xs">💡 Formato de Planilla Soportado:</span>
                   <p className="leading-relaxed">
-                    1. Crea una Google Sheet con una fila inicial de títulos. Te sugerimos usar columnas llamadas: <br />
-                    <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">C1: Título</code>,{" "}
-                    <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">C2: Descripción</code>,{" "}
-                    <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">C3: Urgencia</code> (Alta, Media, Baja),{" "}
-                    <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">C4: Diseñador</code> (Victoria, Giuliana, Martín, etc),{" "}
-                    <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">C5: Proceso</code>.<br />
-                    2. En la esquina superior derecha, haz click en <strong>Compartir</strong> &rarr; Cambiar a <strong>"Cualquiera con el enlace puede ver"</strong>.<br />
-                    3. ¡Pega el enlace web aquí y presiona Establecer!
+                    Tu planilla debe contener la fila de encabezados inicial. El importador detecta automáticamente el formato de tu equipo: <br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Campaña</code> (ej: SLIDE, Ofertas semanales)<br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Canal</code> (ej: Web, Mailing, Redes)<br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Tipo de contenido</code> (ej: Banners, Historia, Video)<br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Descripcion</code> (Detalle del diseño requerido)<br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Responsable</code> (ej: @Victoria Duncan o nombre del diseñador)<br />
+                    • <code className="bg-slate-200 px-1 py-0.5 rounded-sm font-mono font-semibold text-slate-800">Estado</code> (ej: Completado, Sin completar o vacío)<br />
+                    <span className="block mt-1 text-[10.5px] text-indigo-600 font-medium">✨ Tip: Para sincronizar mediante Google Sheets, ve a <strong>Compartir</strong> &rarr; Cambiar a <strong>"Cualquiera con el enlace puede ver"</strong>, pega el enlace aquí arriba y presiona Establecer.</span>
                   </p>
                 </div>
               </div>
@@ -1898,9 +1906,11 @@ function TaskImporter({ designers, analysts, onImport, onCancel }: TaskImporterP
                   aria-label="Celdas de planilla"
                   value={pastedData}
                   onChange={(e) => setPastedData(e.target.value)}
-                  placeholder="Título	Descripción	Urgencia	Diseñador	Proceso
-Post Carrusel	Diseño de feed de cyber	Alta	Victoria	Redes Sociales
-Stories Promo	Descuentos de la semana	Media	Giuliana	Edición de Video"
+                  placeholder="Campaña	Canal	Tipo de contenido	Descripcion	Responsable	Estado
+SLIDE	Web	Banners	30 eucerin (su KV)	@Victoria Duncan	Sin completar
+SLIDE	Web	Banners	50 Nivea (SU KV)	@Victoria Duncan	Completado
+Ofertas semanales	Mailing	Banners	Cuidado de la piel, personal, etc.	@Victoria Duncan	Completado
+Folleto	Redes	Historia	Para comerciales - ver referencias	@Victoria Duncan	"
                   rows={6}
                   className="w-full text-slate-900 bg-white border border-slate-300 rounded-lg p-3 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-mono transition"
                 />
